@@ -69,6 +69,13 @@ jobs:
           images: ghcr.io/${{ github.actor }}/${{ inputs.target_directory }}
           tags: |
             type=raw,value=${{ inputs.output_tag }}
+            
+      - name: Debug - Check all variables
+        run: |
+          echo "Repository owner: ${{ github.repository_owner }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Target image: ghcr.io/${{ github.actor }}/${{ inputs.target_directory }}:${{ inputs.output_tag }}"
 
       - name: Build and push upgraded container image to GHCR
         uses: docker/build-push-action@v6
@@ -113,7 +120,7 @@ jobs:
           - Upgraded RStudio Server from URL: ${{ inputs.rstudio_url }}
           - Base image: ${{ inputs.base_image }}
           
-          Image URL: ghcr.io/${{ github.repository_owner }}/${{ inputs.target_directory }}:${{ inputs.output_tag }}
+          Image URL: ghcr.io/${{ github.actor }}/${{ inputs.target_directory }}:${{ inputs.output_tag }}
           
           EOF
           cat ${{ inputs.target_directory }}/CHANGELOG.md >> temp_changelog.md
