@@ -38,6 +38,9 @@ jobs:
   upgrade:
     name: Upgrade container image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Free root space
         uses: almahmoud/free-root-space@v1
