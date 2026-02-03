@@ -1,0 +1,16 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        cd anvil-rstudio-bioconductor-devel
+        tag=$(cat ./VERSION)
+        out=$(docker pull ghcr.io/anvilproject/anvil-rstudio-bioconductor-devel:$tag)
+        while [[ $out != *"up to date"* ]]; do
+          out=$(docker pull ghcr.io/anvilproject/anvil-rstudio-bioconductor-devel:$tag);
+          sleep 30;
+        done
+        docker tag ghcr.io/anvilproject/anvil-rstudio-bioconductor-devel:$tag us.gcr.io/broad-dsp-gcr-public/anvil-rstudio-bioconductor-devel:$tag
+        docker push us.gcr.io/broad-dsp-gcr-public/anvil-rstudio-bioconductor-devel:$tag
+timeout: 3600s

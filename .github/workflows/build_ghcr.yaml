@@ -1,0 +1,105 @@
+name: Build container image for GHCR
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        base:
+          - {directory: 'anvil-rstudio-bioconductor'}
+          - {directory: 'anvil-rstudio-bioconductor-devel'}
+    name: Build branch images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free root space
+        uses: almahmoud/free-root-space@v1
+        with:
+          verbose: true
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Set version
+        id: version-meta
+        run: |
+          devversion="$(cat ${{ matrix.base.directory }}/dev_VERSION)"
+          version="$(cat ${{ matrix.base.directory }}/VERSION)"
+          if [ "$devversion" != "${devversion%"$version"*}" ]; then
+            devversion="$(echo $version)"
+          fi
+          echo "CONTAINER_VERSION=$devversion" >> $GITHUB_OUTPUT
+
+      - name: Get list of changed files if on push (check if VERSION changed)
+        id: changed
+        if: github.event_name == 'push'
+        run: |
+          git diff --name-only ${{ github.event.before }} ${{ github.event.after }} > tmpchanged
+          if grep -xq "^${{ matrix.base.directory }}/VERSION$" tmpchanged; then
+            echo "CHANGED=TRUE" >> $GITHUB_OUTPUT
+          else
+            echo "CHANGED=FALSE" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract metadata for container image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.base.directory }}
+          tags: |
+            type=raw,value=${{ steps.version-meta.outputs.CONTAINER_VERSION }}
+
+      - name: Build and push container image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.base.directory }}
+          file: ${{ matrix.base.directory }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Generate info JSON with Broad script
+        if: steps.changed.outputs.CHANGED == 'TRUE'
+        run: |
+          mkdir -p ${{ matrix.base.directory }}/info
+          mkdir -p /tmp/${{ matrix.base.directory }}
+          docker run --name ${{ matrix.base.directory }} -d ${{ steps.meta.outputs.tags }}
+          sed -i "s/##${{matrix.base.directory}}-VERSION##/$(cat ${{matrix.base.directory}}/VERSION)/g" config/conf.json
+          bash scripts/generate_packages.sh ${{ matrix.base.directory }}
+          # Remove spaces
+          (cd ${{ matrix.base.directory }}/info && for file in *; do [[ "$file" == *" "* ]] && mv "$file" "${file// /}"; done)
+          cp -r ${{ matrix.base.directory }}/info /tmp/${{ matrix.base.directory }}/
+
+      - name: Push info
+        if: steps.changed.outputs.CHANGED == 'TRUE'
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 50
+          shell: bash
+          command: |
+            set -x
+            git config --global --add safe.directory "$GITHUB_WORKSPACE"
+            git pull origin ${GITHUB_REF#refs/heads/} || git reset --hard origin/${GITHUB_REF#refs/heads/}
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            cp -r /tmp/${{ matrix.base.directory }}/info ${{ matrix.base.directory }}/
+            git add ${{ matrix.base.directory }}
+            git commit -m "Generated info for ${{ matrix.base.directory }}"
+            git push
