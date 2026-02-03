@@ -66,7 +66,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ inputs.target_directory }}
+          images: ghcr.io/${{ github.actor }}/${{ inputs.target_directory }}
           tags: |
             type=raw,value=${{ inputs.output_tag }}
 
