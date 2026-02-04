@@ -1,0 +1,20 @@
+cd terra-docker
+  745  ls
+  746  cd terra-jupyter-r
+  747  ls
+  748  vi Dockerfile
+  749  git log
+  750  pwd
+  751  ls
+  752  docker build -t vjcitn/testterrar:0.0.1 .
+  753  docker images
+  754  docker run -it --rm -entrypoint /bin/bash 2312d
+  755  docker run -it --rm --entrypoint /bin/bash 2312d
+  756  docker login
+  757  docker images |head -3
+  758  docker push vjcitn/testterrar:0.0.1
+  759  pd
+  760  pwd
+  761  git diff
+  762  history | tail -20
+
